@@ -9,6 +9,7 @@
 
 // import { AREngineSimple as AREngine } from './ar/AREngineSimple.js'; // Using simpler engine by default
 import { AREngine } from './ar/AREngine.js'; // Full ORB-SLAM engine for better outdoor tracking
+import { WebXREngine } from './ar/WebXREngine.js'; // WebXR for better indoor AR
 import { SceneManager } from './ar/SceneManager.js';
 import { UIController } from './ar/UIController.js';
 import { ModelLoader } from './ar/ModelLoader.js';
@@ -21,72 +22,152 @@ class ARArchitectureApp {
         this.modelLoader = null;
         this.isInitialized = false;
         this.currentModel = null;
-        
+        this.useWebXR = false; // Flag to track which engine is used
+
         this.init();
     }
 
     async init() {
+        try {
+            // Try WebXR first for better indoor AR
+            this.updateLoadingStatus('Checking WebXR support...', 10);
+
+            const webxrEngine = new WebXREngine();
+            const webxrSupported = await webxrEngine.checkSupport();
+
+            if (webxrSupported) {
+                console.log('[Main] Using WebXR for AR tracking');
+                this.useWebXR = true;
+                this.arEngine = webxrEngine;
+                await this.arEngine.init();
+
+                // Initialize Three.js scene
+                this.updateLoadingStatus('Setting up 3D scene...', 40);
+                this.sceneManager = new SceneManager();
+                await this.sceneManager.init();
+
+                // Initialize model loader
+                this.updateLoadingStatus('Preparing model loader...', 70);
+                this.modelLoader = new ModelLoader(this.sceneManager);
+
+                // Initialize UI
+                this.updateLoadingStatus('Setting up controls...', 90);
+                this.uiController = new UIController(this);
+
+                this.updateLoadingStatus('Ready! Tap "Start AR" to begin', 100);
+                this.hideLoadingScreen();
+
+                // WebXR requires user interaction to start
+                this.showStartARButton();
+
+            } else {
+                // Fall back to OpenCV-based tracking
+                console.log('[Main] WebXR not supported, falling back to OpenCV tracking');
+                await this.initOpenCVMode();
+            }
+
+        } catch (error) {
+            console.error('Initialization error:', error);
+            // Fall back to OpenCV mode on any error
+            console.log('[Main] Falling back to OpenCV mode');
+            await this.initOpenCVMode();
+        }
+    }
+
+    async initOpenCVMode() {
         this.updateLoadingStatus('Waiting for OpenCV.js...', 10);
-        
+
         // Wait for OpenCV to be ready
         if (!window.cvReady) {
             await new Promise((resolve, reject) => {
-                // Add timeout for OpenCV loading
                 const timeout = setTimeout(() => {
                     reject(new Error('OpenCV.js load timeout'));
                 }, 30000);
-                
+
                 document.addEventListener('opencv-ready', () => {
                     clearTimeout(timeout);
                     resolve();
                 }, { once: true });
             });
         }
-        
+
         this.updateLoadingStatus('OpenCV.js loaded', 30);
-        
-        try {
-            // Check for camera support
-            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                throw new Error('Camera API not supported. Please use a modern browser.');
-            }
-            
-            // Initialize camera
-            this.updateLoadingStatus('Accessing camera...', 40);
-            await this.initCamera();
-            
-            // Initialize AR Engine
-            this.updateLoadingStatus('Initializing AR tracking...', 60);
-            this.arEngine = new AREngine();
-            await this.arEngine.init();
-            
-            // Initialize Three.js scene
-            this.updateLoadingStatus('Setting up 3D scene...', 75);
-            this.sceneManager = new SceneManager();
-            await this.sceneManager.init();
-            
-            // Initialize model loader
-            this.updateLoadingStatus('Preparing model loader...', 85);
-            this.modelLoader = new ModelLoader(this.sceneManager);
-            
-            // Initialize UI
-            this.updateLoadingStatus('Setting up controls...', 95);
-            this.uiController = new UIController(this);
-            
-            // Start the AR loop
-            this.updateLoadingStatus('Ready!', 100);
-            await this.delay(500);
-            this.hideLoadingScreen();
-            
-            this.isInitialized = true;
-            this.startARLoop();
-            
-            console.log('AR App initialized successfully');
-            
-        } catch (error) {
-            console.error('Initialization error:', error);
-            this.showError(error.message);
+
+        // Check for camera support
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            throw new Error('Camera API not supported. Please use a modern browser.');
         }
+
+        // Initialize camera
+        this.updateLoadingStatus('Accessing camera...', 40);
+        await this.initCamera();
+
+        // Initialize AR Engine
+        this.updateLoadingStatus('Initializing AR tracking...', 60);
+        this.arEngine = new AREngine();
+        await this.arEngine.init();
+
+        // Initialize Three.js scene
+        this.updateLoadingStatus('Setting up 3D scene...', 75);
+        this.sceneManager = new SceneManager();
+        await this.sceneManager.init();
+
+        // Initialize model loader
+        this.updateLoadingStatus('Preparing model loader...', 85);
+        this.modelLoader = new ModelLoader(this.sceneManager);
+
+        // Initialize UI
+        this.updateLoadingStatus('Setting up controls...', 95);
+        this.uiController = new UIController(this);
+
+        // Start the AR loop
+        this.updateLoadingStatus('Ready!', 100);
+        await this.delay(500);
+        this.hideLoadingScreen();
+
+        this.isInitialized = true;
+        this.startARLoop();
+
+        console.log('AR App initialized successfully (OpenCV mode)');
+    }
+
+    showStartARButton() {
+        // Create and show a button to start WebXR session
+        const startButton = document.createElement('button');
+        startButton.id = 'start-ar-btn';
+        startButton.textContent = 'Start AR';
+        startButton.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 20px 40px;
+            font-size: 18px;
+            background: #4fc3f7;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            z-index: 10000;
+        `;
+
+        startButton.onclick = async () => {
+            try {
+                const canvas = document.getElementById('ar-canvas');
+                await this.arEngine.startSession(canvas);
+                startButton.remove();
+
+                this.isInitialized = true;
+                this.startWebXRLoop();
+
+                console.log('WebXR AR session started');
+            } catch (error) {
+                console.error('Failed to start WebXR session:', error);
+                alert('Failed to start AR: ' + error.message);
+            }
+        };
+
+        document.body.appendChild(startButton);
     }
 
     async initCamera() {
@@ -176,11 +257,13 @@ class ARArchitectureApp {
 
                     // Update 3D scene
                     if (trackingResult.isTracking && this.currentModel) {
-                        // Update camera pose for 6DOF tracking (makes model appear anchored)
+                        // Always update camera pose for device orientation tracking
                         this.sceneManager.updateCameraPose(trackingResult.pose);
 
-                        // Update model pose (for placement indicator before placing)
-                        this.sceneManager.updateModelPose(trackingResult.pose);
+                        // Only update model pose indicator BEFORE placement
+                        if (!this.sceneManager.isModelPlaced) {
+                            this.sceneManager.updateModelPose(trackingResult.pose);
+                        }
                     }
                     
                     // Update debug info
@@ -200,6 +283,63 @@ class ARArchitectureApp {
         };
         
         requestAnimationFrame(loop);
+    }
+
+    startWebXRLoop() {
+        let frameCount = 0;
+        let fpsUpdateTime = performance.now();
+
+        const onXRFrame = (time, frame) => {
+            if (!this.isInitialized || !this.arEngine.isSessionActive) {
+                return;
+            }
+
+            const session = frame.session;
+            session.requestAnimationFrame(onXRFrame);
+
+            frameCount++;
+
+            // Update FPS display every second
+            const now = performance.now();
+            if (now - fpsUpdateTime >= 1000) {
+                const fps = Math.round(frameCount * 1000 / (now - fpsUpdateTime));
+                document.getElementById('fps').textContent = fps;
+                frameCount = 0;
+                fpsUpdateTime = now;
+            }
+
+            // Process WebXR frame
+            const trackingResult = this.arEngine.processFrame(frame);
+
+            // Log status periodically
+            if (frameCount === 1 || frameCount % 60 === 0) {
+                console.log('[Main] WebXR Frame', frameCount, 'Tracking:', trackingResult.isTracking, 'Confidence:', trackingResult.pose?.confidence);
+            }
+
+            // Update UI based on tracking status
+            this.updateTrackingStatus(trackingResult);
+
+            // Update camera from WebXR viewer pose
+            if (trackingResult.viewerTransform && this.sceneManager.camera) {
+                const transform = trackingResult.viewerTransform;
+                const position = transform.position;
+                const orientation = transform.orientation;
+
+                // Update camera position and rotation from WebXR
+                this.sceneManager.camera.position.set(position.x, position.y, position.z);
+                this.sceneManager.camera.quaternion.set(orientation.x, orientation.y, orientation.z, orientation.w);
+            }
+
+            // Update model pose indicator BEFORE placement
+            if (trackingResult.isTracking && this.currentModel && !this.sceneManager.isModelPlaced) {
+                this.sceneManager.updateModelPose(trackingResult.pose);
+            }
+
+            // Render Three.js scene
+            this.sceneManager.render();
+        };
+
+        this.arEngine.xrSession.requestAnimationFrame(onXRFrame);
     }
 
     updateTrackingStatus(result) {

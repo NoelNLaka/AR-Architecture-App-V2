@@ -207,68 +207,79 @@ export class SceneManager {
             console.warn('[SceneManager] No model to place');
             return false;
         }
-        
+
         console.log('[SceneManager] placeModel called with pose:', pose);
-        
-        // Use the pose's planeCenter (screen coordinates) to determine world position
-        const screenX = pose.planeCenter.x;
-        const screenY = pose.planeCenter.y;
-        
-        console.log('[SceneManager] Screen coords:', screenX, screenY);
-        console.log('[SceneManager] Screen size:', this.screenWidth, this.screenHeight);
-        
-        // Convert screen coordinates to normalized device coordinates (-1 to 1)
-        const ndcX = (screenX / this.screenWidth) * 2 - 1;
-        const ndcY = -(screenY / this.screenHeight) * 2 + 1;
-        
-        console.log('[SceneManager] NDC:', ndcX, ndcY);
-        
-        // Create raycaster
-        const raycaster = new THREE.Raycaster();
-        raycaster.setFromCamera(new THREE.Vector2(ndcX, ndcY), this.camera);
-        
-        // Intersect with virtual ground plane at y=0
-        const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-        const intersectionPoint = new THREE.Vector3();
-        
-        const intersected = raycaster.ray.intersectPlane(groundPlane, intersectionPoint);
-        
-        if (intersected) {
-            console.log('[SceneManager] Intersection point:', intersectionPoint);
-            
-            // Position model at intersection
-            this.modelGroup.position.set(
-                intersectionPoint.x,
-                0,
-                intersectionPoint.z
-            );
+
+        let placementPosition = new THREE.Vector3();
+
+        // Check if we have WebXR hit test matrix
+        if (pose.matrix) {
+            // WebXR hit test result - use the matrix directly
+            const matrix = new THREE.Matrix4();
+            matrix.fromArray(pose.matrix);
+
+            placementPosition.setFromMatrixPosition(matrix);
+            console.log('[SceneManager] Using WebXR hit test position:', placementPosition);
+
+        } else if (pose.planeCenter) {
+            // OpenCV-based tracking - use raycasting
+            const screenX = pose.planeCenter.x;
+            const screenY = pose.planeCenter.y;
+
+            console.log('[SceneManager] Screen coords:', screenX, screenY);
+
+            // Convert screen coordinates to normalized device coordinates (-1 to 1)
+            const ndcX = (screenX / this.screenWidth) * 2 - 1;
+            const ndcY = -(screenY / this.screenHeight) * 2 + 1;
+
+            // Create raycaster
+            const raycaster = new THREE.Raycaster();
+            raycaster.setFromCamera(new THREE.Vector2(ndcX, ndcY), this.camera);
+
+            // Intersect with virtual ground plane at y=0
+            const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+            const intersectionPoint = new THREE.Vector3();
+
+            const intersected = raycaster.ray.intersectPlane(groundPlane, intersectionPoint);
+
+            if (intersected) {
+                placementPosition.copy(intersectionPoint);
+                console.log('[SceneManager] Intersection point:', intersectionPoint);
+            } else {
+                // Fallback: place in front of camera
+                console.log('[SceneManager] No intersection, using fallback position');
+                placementPosition.set(0, 0, -2);
+            }
         } else {
             // Fallback: place in front of camera
-            console.log('[SceneManager] No intersection, using fallback position');
-            this.modelGroup.position.set(0, 0, -2);
+            console.log('[SceneManager] No placement data, using fallback position');
+            placementPosition.set(0, 0, -2);
         }
-        
+
+        // Position model at calculated position
+        this.modelGroup.position.copy(placementPosition);
+
         // Apply rotation
         this.modelGroup.rotation.y = this.modelRotation * (Math.PI / 180);
-        
+
         // Show model
         this.modelGroup.visible = true;
-        
+
         // Show and position shadow plane
         this.shadowPlane.visible = true;
         this.shadowPlane.position.x = this.modelGroup.position.x;
         this.shadowPlane.position.z = this.modelGroup.position.z;
-        
+
         // Hide indicators
         this.groundIndicator.visible = false;
         this.gridHelper.visible = false;
-        
+
         this.isModelPlaced = true;
         this.placedPosition.copy(this.modelGroup.position);
-        
+
         console.log('[SceneManager] Model placed at:', this.modelGroup.position);
         console.log('[SceneManager] Model visible:', this.modelGroup.visible);
-        
+
         return true;
     }
 
