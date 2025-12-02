@@ -116,26 +116,44 @@ export class AREngine {
         };
 
         try {
-            // Capture frame from video
-            if (!this.frame) {
-                this.frame = new cv.Mat(video.videoHeight, video.videoWidth, cv.CV_8UC4);
+            const videoWidth = video.videoWidth;
+            const videoHeight = video.videoHeight;
+
+            // Validate video dimensions
+            if (videoWidth === 0 || videoHeight === 0) {
+                console.warn('[AREngine] Invalid video dimensions');
+                return result;
+            }
+
+            // Initialize frame matrix on first run or if dimensions changed
+            if (!this.frame || this.frame.rows !== videoHeight || this.frame.cols !== videoWidth) {
+                console.log(`[AREngine] Creating frame buffer: ${videoWidth}x${videoHeight}`);
+
+                if (this.frame) this.frame.delete();
+                this.frame = new cv.Mat(videoHeight, videoWidth, cv.CV_8UC4);
                 this.grayFrame = new cv.Mat();
                 this.prevGrayFrame = new cv.Mat();
-                
+
                 // Update debug canvas size
                 if (this.debugCanvas) {
-                    this.debugCanvas.width = video.videoWidth;
-                    this.debugCanvas.height = video.videoHeight;
+                    this.debugCanvas.width = videoWidth;
+                    this.debugCanvas.height = videoHeight;
                 }
-                
+
                 // Update camera matrix
-                this.initCameraMatrix(video.videoWidth, video.videoHeight);
+                this.initCameraMatrix(videoWidth, videoHeight);
             }
-            
-            // Read frame from video
-            const cap = new cv.VideoCapture(video);
-            cap.read(this.frame);
-            
+
+            // Capture frame from video using canvas (reliable for web)
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = videoWidth;
+            tempCanvas.height = videoHeight;
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCtx.drawImage(video, 0, 0);
+
+            const imageData = tempCtx.getImageData(0, 0, videoWidth, videoHeight);
+            this.frame.data.set(imageData.data);
+
             // Convert to grayscale
             cv.cvtColor(this.frame, this.grayFrame, cv.COLOR_RGBA2GRAY);
             
