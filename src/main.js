@@ -7,8 +7,8 @@
  * - AREngineSimple: Lucas-Kanade optical flow (faster, better for mobile)
  */
 
-import { AREngineSimple as AREngine } from './ar/AREngineSimple.js'; // Using simpler engine by default
-// import { AREngine } from './ar/AREngine.js'; // Uncomment for full SLAM engine
+// import { AREngineSimple as AREngine } from './ar/AREngineSimple.js'; // Using simpler engine by default
+import { AREngine } from './ar/AREngine.js'; // Full ORB-SLAM engine for better outdoor tracking
 import { SceneManager } from './ar/SceneManager.js';
 import { UIController } from './ar/UIController.js';
 import { ModelLoader } from './ar/ModelLoader.js';
