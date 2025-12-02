@@ -10,6 +10,7 @@
     "serve": "vite --host"
   },
   "dependencies": {
+    "@ar-js-org/ar.js": "^3.4.7",
     "three": "^0.160.0"
   },
   "devDependencies": {
