@@ -173,9 +173,13 @@ class ARArchitectureApp {
                     
                     // Update UI based on tracking status
                     this.updateTrackingStatus(trackingResult);
-                    
+
                     // Update 3D scene
                     if (trackingResult.isTracking && this.currentModel) {
+                        // Update camera pose for 6DOF tracking (makes model appear anchored)
+                        this.sceneManager.updateCameraPose(trackingResult.pose);
+
+                        // Update model pose (for placement indicator before placing)
                         this.sceneManager.updateModelPose(trackingResult.pose);
                     }
                     

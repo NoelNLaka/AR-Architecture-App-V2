@@ -21,6 +21,11 @@ export class SceneManager {
         this.modelScale = 1.0;
         this.modelRotation = 0;
         this.placedPosition = new THREE.Vector3();
+
+        // Camera tracking state
+        this.initialCameraPosition = new THREE.Vector3(0, 1.5, 0);
+        this.cameraOffset = new THREE.Vector3();
+        this.lastCameraUpdate = Date.now();
         
         // Screen dimensions
         this.screenWidth = window.innerWidth;
@@ -307,9 +312,35 @@ export class SceneManager {
         }
     }
 
+    updateCameraPose(pose) {
+        if (!pose) return;
+
+        // Update camera rotation from IMU (device orientation)
+        // Note: We apply rotation to make the 3D world match device orientation
+        this.camera.rotation.x = pose.rotation.x;
+        this.camera.rotation.y = pose.rotation.y;
+        this.camera.rotation.z = pose.rotation.z;
+
+        // Update camera position from visual tracking
+        // The pose.position represents the motion detected by the AR engine
+        // We accumulate this motion to move the camera in the 3D world
+        if (this.isModelPlaced) {
+            // After placement, update camera to maintain model's world position
+            // Negative values because camera moves opposite to scene motion
+            this.cameraOffset.x -= pose.position.x * 10; // Scale factor for sensitivity
+            this.cameraOffset.z -= pose.position.z * 10;
+
+            // Apply the offset to camera position
+            this.camera.position.x = this.initialCameraPosition.x + this.cameraOffset.x;
+            this.camera.position.z = this.initialCameraPosition.z + this.cameraOffset.z;
+        }
+
+        this.lastCameraUpdate = Date.now();
+    }
+
     resetModel() {
         console.log('[SceneManager] Resetting model');
-        
+
         this.isModelPlaced = false;
         this.modelGroup.visible = false;
         this.shadowPlane.visible = false;
@@ -317,6 +348,11 @@ export class SceneManager {
         this.gridHelper.visible = false;
         this.placedPosition.set(0, 0, 0);
         this.modelGroup.position.set(0, 0, 0);
+
+        // Reset camera tracking
+        this.cameraOffset.set(0, 0, 0);
+        this.camera.position.copy(this.initialCameraPosition);
+        this.camera.rotation.set(0, 0, 0);
     }
 
     setModelScale(scale) {
