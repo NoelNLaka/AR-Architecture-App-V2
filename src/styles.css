@@ -405,13 +405,134 @@ body {
     display: none;
 }
 
+/* Setting Sections */
+.setting-section {
+    margin-bottom: 25px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid rgba(255,255,255,0.15);
+}
+
+.setting-section:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+
+.setting-section h3 {
+    color: #4fc3f7;
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 15px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.setting-group {
+    margin-top: 15px;
+    padding: 15px;
+    background: rgba(79, 195, 247, 0.1);
+    border-radius: 10px;
+    border-left: 3px solid #4fc3f7;
+}
+
+.setting-group.hidden {
+    display: none;
+}
+
+.setting-item select {
+    background: rgba(255,255,255,0.1);
+    color: white;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 14px;
+    cursor: pointer;
+    outline: none;
+}
+
+.setting-item select:focus {
+    border-color: #4fc3f7;
+}
+
+.setting-item input[type="number"] {
+    background: rgba(255,255,255,0.1);
+    color: white;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 14px;
+    width: 160px;
+    outline: none;
+}
+
+.setting-item input[type="number"]:focus {
+    border-color: #4fc3f7;
+}
+
+.setting-btn {
+    width: 100%;
+    padding: 12px;
+    margin-top: 15px;
+    background: linear-gradient(135deg, #4fc3f7, #29b6f6);
+    border: none;
+    border-radius: 8px;
+    color: white;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.setting-btn:hover,
+.setting-btn:active {
+    background: linear-gradient(135deg, #29b6f6, #0288d1);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(79, 195, 247, 0.4);
+}
+
+.setting-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.gps-status {
+    margin-top: 12px;
+    padding: 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    text-align: center;
+    min-height: 20px;
+}
+
+.gps-status.success {
+    background: rgba(76, 175, 80, 0.2);
+    color: #81c784;
+    border: 1px solid rgba(76, 175, 80, 0.4);
+}
+
+.gps-status.error {
+    background: rgba(244, 67, 54, 0.2);
+    color: #e57373;
+    border: 1px solid rgba(244, 67, 54, 0.4);
+}
+
+.gps-status.info {
+    background: rgba(33, 150, 243, 0.2);
+    color: #64b5f6;
+    border: 1px solid rgba(33, 150, 243, 0.4);
+}
+
 /* Responsive */
 @media (max-width: 400px) {
     .action-btn {
         padding: 10px 15px;
     }
-    
+
     #model-list {
         grid-template-columns: 1fr;
+    }
+
+    .setting-item input[type="number"] {
+        width: 140px;
     }
 }

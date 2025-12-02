@@ -109,7 +109,20 @@ export class UIController {
             const intensity = parseInt(e.target.value) / 100;
             this.app.sceneManager.setAmbientIntensity(intensity);
         });
-        
+
+        // AR Mode switching
+        document.getElementById('setting-ar-mode').addEventListener('change', (e) => {
+            this.onARModeChange(e.target.value);
+        });
+
+        // Set GPS target button
+        document.getElementById('btn-set-gps-target').addEventListener('click', () => {
+            this.onSetGPSTarget();
+        });
+
+        // Initialize AR mode selector based on current mode
+        this.updateARModeUI();
+
         // Touch gestures for model manipulation
         this.setupTouchGestures();
         
@@ -267,5 +280,107 @@ export class UIController {
         document.getElementById('debug-info').classList.toggle('hidden', !visible);
         document.getElementById('setting-debug').checked = visible;
         this.app.arEngine.setDebugVisible(visible);
+    }
+
+    updateARModeUI() {
+        // Set the dropdown to match current AR mode
+        const modeSelect = document.getElementById('setting-ar-mode');
+        const gpsSettings = document.getElementById('gps-settings');
+
+        if (this.app.isOutdoorMode || this.app.arMode === 'location') {
+            modeSelect.value = 'outdoor';
+            gpsSettings.classList.remove('hidden');
+        } else {
+            modeSelect.value = 'indoor';
+            gpsSettings.classList.add('hidden');
+        }
+    }
+
+    onARModeChange(mode) {
+        const gpsSettings = document.getElementById('gps-settings');
+
+        if (mode === 'outdoor') {
+            gpsSettings.classList.remove('hidden');
+
+            // Show confirmation dialog
+            const confirmSwitch = confirm(
+                'Switching to Outdoor GPS mode requires a page reload. Continue?'
+            );
+
+            if (confirmSwitch) {
+                // Reload with outdoor mode parameter
+                window.location.href = window.location.pathname + '?mode=outdoor';
+            } else {
+                // User cancelled, revert dropdown
+                document.getElementById('setting-ar-mode').value = 'indoor';
+                gpsSettings.classList.add('hidden');
+            }
+        } else {
+            gpsSettings.classList.add('hidden');
+
+            // Show confirmation dialog
+            const confirmSwitch = confirm(
+                'Switching to Indoor mode requires a page reload. Continue?'
+            );
+
+            if (confirmSwitch) {
+                // Reload without mode parameter (defaults to indoor)
+                window.location.href = window.location.pathname;
+            } else {
+                // User cancelled, revert dropdown
+                document.getElementById('setting-ar-mode').value = 'outdoor';
+                gpsSettings.classList.remove('hidden');
+            }
+        }
+    }
+
+    onSetGPSTarget() {
+        const latInput = document.getElementById('setting-gps-lat');
+        const lonInput = document.getElementById('setting-gps-lon');
+        const altInput = document.getElementById('setting-gps-alt');
+        const statusDiv = document.getElementById('gps-status');
+
+        const latitude = parseFloat(latInput.value);
+        const longitude = parseFloat(lonInput.value);
+        const altitude = parseFloat(altInput.value) || 0;
+
+        // Validate inputs
+        if (isNaN(latitude) || isNaN(longitude)) {
+            statusDiv.className = 'gps-status error';
+            statusDiv.textContent = 'Please enter valid coordinates';
+            return;
+        }
+
+        if (latitude < -90 || latitude > 90) {
+            statusDiv.className = 'gps-status error';
+            statusDiv.textContent = 'Latitude must be between -90 and 90';
+            return;
+        }
+
+        if (longitude < -180 || longitude > 180) {
+            statusDiv.className = 'gps-status error';
+            statusDiv.textContent = 'Longitude must be between -180 and 180';
+            return;
+        }
+
+        // Check if we're in location mode
+        if (this.app.arMode !== 'location') {
+            statusDiv.className = 'gps-status error';
+            statusDiv.textContent = 'GPS mode not active. Switch to Outdoor mode first.';
+            return;
+        }
+
+        // Set target location
+        try {
+            this.app.arEngine.setTargetLocation(latitude, longitude, altitude);
+
+            statusDiv.className = 'gps-status success';
+            statusDiv.textContent = `Target set: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+
+            console.log('[UIController] GPS target set:', { latitude, longitude, altitude });
+        } catch (error) {
+            statusDiv.className = 'gps-status error';
+            statusDiv.textContent = 'Failed to set target: ' + error.message;
+        }
     }
 }

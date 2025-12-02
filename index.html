@@ -122,25 +122,59 @@
                 <button id="close-settings-panel" class="close-btn">×</button>
             </div>
             <div class="settings-content">
-                <div class="setting-item">
-                    <label>Show Debug View</label>
-                    <input type="checkbox" id="setting-debug">
+                <div class="setting-section">
+                    <h3>AR Mode</h3>
+                    <div class="setting-item">
+                        <label>Mode</label>
+                        <select id="setting-ar-mode">
+                            <option value="indoor">Indoor (WebXR/OpenCV)</option>
+                            <option value="outdoor">Outdoor (GPS-based)</option>
+                        </select>
+                    </div>
+                    <div id="gps-settings" class="setting-group hidden">
+                        <div class="setting-item">
+                            <label>Target Latitude</label>
+                            <input type="number" id="setting-gps-lat" step="0.000001" placeholder="e.g., 40.748817">
+                        </div>
+                        <div class="setting-item">
+                            <label>Target Longitude</label>
+                            <input type="number" id="setting-gps-lon" step="0.000001" placeholder="e.g., -73.985428">
+                        </div>
+                        <div class="setting-item">
+                            <label>Altitude (meters)</label>
+                            <input type="number" id="setting-gps-alt" step="0.1" value="0" placeholder="0">
+                        </div>
+                        <button id="btn-set-gps-target" class="setting-btn">Set GPS Target</button>
+                        <div id="gps-status" class="gps-status"></div>
+                    </div>
                 </div>
-                <div class="setting-item">
-                    <label>Feature Point Count</label>
-                    <input type="range" id="setting-features" min="100" max="1000" value="500">
+
+                <div class="setting-section">
+                    <h3>Visual Settings</h3>
+                    <div class="setting-item">
+                        <label>Show Debug View</label>
+                        <input type="checkbox" id="setting-debug">
+                    </div>
+                    <div class="setting-item">
+                        <label>Ground Shadow</label>
+                        <input type="checkbox" id="setting-shadow" checked>
+                    </div>
+                    <div class="setting-item">
+                        <label>Ambient Lighting</label>
+                        <input type="range" id="setting-ambient" min="0" max="100" value="60">
+                    </div>
                 </div>
-                <div class="setting-item">
-                    <label>Tracking Sensitivity</label>
-                    <input type="range" id="setting-sensitivity" min="1" max="10" value="5">
-                </div>
-                <div class="setting-item">
-                    <label>Ground Shadow</label>
-                    <input type="checkbox" id="setting-shadow" checked>
-                </div>
-                <div class="setting-item">
-                    <label>Ambient Lighting</label>
-                    <input type="range" id="setting-ambient" min="0" max="100" value="60">
+
+                <div class="setting-section">
+                    <h3>Tracking Settings</h3>
+                    <div class="setting-item">
+                        <label>Feature Point Count</label>
+                        <input type="range" id="setting-features" min="100" max="1000" value="500">
+                    </div>
+                    <div class="setting-item">
+                        <label>Tracking Sensitivity</label>
+                        <input type="range" id="setting-sensitivity" min="1" max="10" value="5">
+                    </div>
                 </div>
             </div>
         </div>

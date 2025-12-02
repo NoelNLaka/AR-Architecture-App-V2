@@ -8,8 +8,9 @@
  */
 
 // import { AREngineSimple as AREngine } from './ar/AREngineSimple.js'; // Using simpler engine by default
-import { AREngine } from './ar/AREngine.js'; // Full ORB-SLAM engine for better outdoor tracking
-import { WebXREngine } from './ar/WebXREngine.js'; // WebXR for better indoor AR
+import { AREngine } from './ar/AREngine.js'; // ORB-SLAM engine with Kalman filtering for indoor tracking
+import { WebXREngine } from './ar/WebXREngine.js'; // WebXR for best indoor AR (ARCore/ARKit)
+import { ARLocationEngine } from './ar/ARLocationEngine.js'; // GPS-based outdoor AR for architecture
 import { SceneManager } from './ar/SceneManager.js';
 import { UIController } from './ar/UIController.js';
 import { ModelLoader } from './ar/ModelLoader.js';
@@ -22,54 +23,116 @@ class ARArchitectureApp {
         this.modelLoader = null;
         this.isInitialized = false;
         this.currentModel = null;
-        this.useWebXR = false; // Flag to track which engine is used
+
+        // AR Mode tracking
+        this.arMode = null; // 'webxr', 'location', or 'opencv'
+        this.isOutdoorMode = false; // User preference for indoor vs outdoor
 
         this.init();
     }
 
     async init() {
         try {
-            // Try WebXR first for better indoor AR
-            this.updateLoadingStatus('Checking WebXR support...', 10);
+            // Check if user wants outdoor mode (GPS-based)
+            // This can be set via URL parameter: ?mode=outdoor
+            const urlParams = new URLSearchParams(window.location.search);
+            this.isOutdoorMode = urlParams.get('mode') === 'outdoor';
 
-            const webxrEngine = new WebXREngine();
-            const webxrSupported = await webxrEngine.checkSupport();
-
-            if (webxrSupported) {
-                console.log('[Main] Using WebXR for AR tracking');
-                this.useWebXR = true;
-                this.arEngine = webxrEngine;
-                await this.arEngine.init();
-
-                // Initialize Three.js scene
-                this.updateLoadingStatus('Setting up 3D scene...', 40);
-                this.sceneManager = new SceneManager();
-                await this.sceneManager.init();
-
-                // Initialize model loader
-                this.updateLoadingStatus('Preparing model loader...', 70);
-                this.modelLoader = new ModelLoader(this.sceneManager);
-
-                // Initialize UI
-                this.updateLoadingStatus('Setting up controls...', 90);
-                this.uiController = new UIController(this);
-
-                this.updateLoadingStatus('Ready! Tap "Start AR" to begin', 100);
-                this.hideLoadingScreen();
-
-                // WebXR requires user interaction to start
-                this.showStartARButton();
-
+            if (this.isOutdoorMode) {
+                // User wants outdoor GPS-based AR
+                console.log('[Main] Outdoor mode requested - using GPS-based AR');
+                await this.initLocationMode();
             } else {
-                // Fall back to OpenCV-based tracking
-                console.log('[Main] WebXR not supported, falling back to OpenCV tracking');
-                await this.initOpenCVMode();
+                // Indoor mode - try WebXR first, fall back to OpenCV
+                this.updateLoadingStatus('Checking WebXR support...', 10);
+
+                const webxrEngine = new WebXREngine();
+                const webxrSupported = await webxrEngine.checkSupport();
+
+                if (webxrSupported) {
+                    console.log('[Main] Using WebXR for indoor AR tracking');
+                    this.arMode = 'webxr';
+                    this.arEngine = webxrEngine;
+                    await this.arEngine.init();
+
+                    // Initialize Three.js scene
+                    this.updateLoadingStatus('Setting up 3D scene...', 40);
+                    this.sceneManager = new SceneManager();
+                    await this.sceneManager.init();
+
+                    // Initialize model loader
+                    this.updateLoadingStatus('Preparing model loader...', 70);
+                    this.modelLoader = new ModelLoader(this.sceneManager);
+
+                    // Initialize UI
+                    this.updateLoadingStatus('Setting up controls...', 90);
+                    this.uiController = new UIController(this);
+
+                    this.updateLoadingStatus('Ready! Tap "Start AR" to begin', 100);
+                    this.hideLoadingScreen();
+
+                    // WebXR requires user interaction to start
+                    this.showStartARButton();
+
+                } else {
+                    // Fall back to OpenCV-based tracking with Kalman filtering
+                    console.log('[Main] WebXR not supported, using OpenCV with Kalman filtering');
+                    await this.initOpenCVMode();
+                }
             }
 
         } catch (error) {
             console.error('Initialization error:', error);
             // Fall back to OpenCV mode on any error
             console.log('[Main] Falling back to OpenCV mode');
+            await this.initOpenCVMode();
+        }
+    }
+
+    async initLocationMode() {
+        this.updateLoadingStatus('Initializing GPS tracking...', 10);
+
+        try {
+            // Check GPS support
+            const locationEngine = new ARLocationEngine();
+            const supported = await locationEngine.checkSupport();
+
+            if (!supported) {
+                throw new Error('GPS or compass not supported. Falling back to indoor mode.');
+            }
+
+            this.arMode = 'location';
+            this.arEngine = locationEngine;
+            await this.arEngine.init();
+
+            this.updateLoadingStatus('GPS tracking active', 40);
+
+            // Initialize Three.js scene
+            this.updateLoadingStatus('Setting up 3D scene...', 60);
+            this.sceneManager = new SceneManager();
+            await this.sceneManager.init();
+
+            // Initialize model loader
+            this.updateLoadingStatus('Preparing model loader...', 80);
+            this.modelLoader = new ModelLoader(this.sceneManager);
+
+            // Initialize UI
+            this.updateLoadingStatus('Setting up controls...', 95);
+            this.uiController = new UIController(this);
+
+            this.updateLoadingStatus('Ready! Set target location to place model', 100);
+            await this.delay(500);
+            this.hideLoadingScreen();
+
+            this.isInitialized = true;
+            this.startLocationLoop();
+
+            console.log('[Main] Location-based AR initialized successfully');
+
+        } catch (error) {
+            console.error('[Main] Location mode failed:', error);
+            alert('GPS mode not available. Switching to indoor mode.');
+            this.isOutdoorMode = false;
             await this.initOpenCVMode();
         }
     }
@@ -102,8 +165,9 @@ class ARArchitectureApp {
         this.updateLoadingStatus('Accessing camera...', 40);
         await this.initCamera();
 
-        // Initialize AR Engine
+        // Initialize AR Engine with Kalman filtering
         this.updateLoadingStatus('Initializing AR tracking...', 60);
+        this.arMode = 'opencv';
         this.arEngine = new AREngine();
         await this.arEngine.init();
 
@@ -128,7 +192,7 @@ class ARArchitectureApp {
         this.isInitialized = true;
         this.startARLoop();
 
-        console.log('AR App initialized successfully (OpenCV mode)');
+        console.log('AR App initialized successfully (OpenCV mode with Kalman filtering)');
     }
 
     showStartARButton() {
@@ -342,26 +406,90 @@ class ARArchitectureApp {
         this.arEngine.xrSession.requestAnimationFrame(onXRFrame);
     }
 
+    startLocationLoop() {
+        let frameCount = 0;
+        let fpsUpdateTime = performance.now();
+
+        const loop = () => {
+            if (!this.isInitialized) return;
+
+            const now = performance.now();
+            frameCount++;
+
+            // Update FPS display every second
+            if (now - fpsUpdateTime >= 1000) {
+                const fps = Math.round(frameCount * 1000 / (now - fpsUpdateTime));
+                document.getElementById('fps').textContent = fps;
+                frameCount = 0;
+                fpsUpdateTime = now;
+            }
+
+            // Process GPS tracking (no video needed)
+            const trackingResult = this.arEngine.processFrame();
+
+            // Log status periodically
+            if (frameCount === 1 || frameCount % 60 === 0) {
+                if (trackingResult.gpsData) {
+                    console.log('[Main] GPS Frame', frameCount,
+                        'Distance:', trackingResult.gpsData.distance?.toFixed(1) + 'm',
+                        'Accuracy:', trackingResult.gpsData.currentLocation?.accuracy?.toFixed(1) + 'm');
+                }
+            }
+
+            // Update UI based on GPS tracking status
+            this.updateTrackingStatus(trackingResult);
+
+            // Update camera rotation from device orientation
+            if (trackingResult.pose) {
+                this.sceneManager.updateCameraPose(trackingResult.pose);
+            }
+
+            // Render Three.js scene
+            this.sceneManager.render();
+
+            requestAnimationFrame(loop);
+        };
+
+        requestAnimationFrame(loop);
+        console.log('[Main] Location-based AR loop started');
+    }
+
     updateTrackingStatus(result) {
         const indicator = document.getElementById('status-indicator');
         const text = document.getElementById('status-text');
         const placeBtn = document.getElementById('btn-place');
-        
+
         indicator.className = '';
-        
-        if (result.isTracking) {
-            indicator.classList.add('status-tracking');
-            const confidence = result.pose?.confidence ? ` (${(result.pose.confidence * 100).toFixed(0)}%)` : '';
-            text.textContent = 'Surface detected' + confidence;
-            placeBtn.disabled = false;
-        } else if (result.hasFeatures) {
-            indicator.classList.add('status-searching');
-            text.textContent = `Searching... (${result.featureCount} features)`;
-            placeBtn.disabled = true;
+
+        // Handle GPS-based tracking differently
+        if (this.arMode === 'location') {
+            if (result.gpsData && result.gpsData.distance !== null) {
+                indicator.classList.add('status-tracking');
+                const distance = result.gpsData.distance.toFixed(1);
+                const accuracy = result.gpsData.currentLocation?.accuracy.toFixed(1);
+                text.textContent = `Target: ${distance}m away (±${accuracy}m accuracy)`;
+                placeBtn.disabled = false;
+            } else {
+                indicator.classList.add('status-searching');
+                text.textContent = 'Acquiring GPS location...';
+                placeBtn.disabled = true;
+            }
         } else {
-            indicator.classList.add('status-lost');
-            text.textContent = 'Point at a textured surface';
-            placeBtn.disabled = true;
+            // Indoor tracking (WebXR or OpenCV)
+            if (result.isTracking) {
+                indicator.classList.add('status-tracking');
+                const confidence = result.pose?.confidence ? ` (${(result.pose.confidence * 100).toFixed(0)}%)` : '';
+                text.textContent = 'Surface detected' + confidence;
+                placeBtn.disabled = false;
+            } else if (result.hasFeatures) {
+                indicator.classList.add('status-searching');
+                text.textContent = `Searching... (${result.featureCount} features)`;
+                placeBtn.disabled = true;
+            } else {
+                indicator.classList.add('status-lost');
+                text.textContent = 'Point at a textured surface';
+                placeBtn.disabled = true;
+            }
         }
     }
 

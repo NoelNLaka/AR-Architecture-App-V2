@@ -1,7 +1,10 @@
 /**
  * AR Engine - OpenCV.js based visual SLAM implementation
  * Handles feature detection, tracking, plane detection, and pose estimation
+ * Enhanced with Kalman filtering for smooth pose tracking
  */
+
+import { PoseKalmanFilter } from './KalmanFilter.js';
 
 export class AREngine {
     constructor() {
@@ -9,24 +12,27 @@ export class AREngine {
         this.frame = null;
         this.grayFrame = null;
         this.prevGrayFrame = null;
-        
+
         // Feature detection
         this.orb = null;
         this.keypoints = null;
         this.descriptors = null;
         this.prevKeypoints = null;
         this.prevDescriptors = null;
-        
+
         // Tracking
         this.isTracking = false;
         this.trackedPoints = [];
         this.currentPose = null;
-        
+
         // Plane detection
         this.detectedPlanes = [];
         this.groundPlane = null;
         this.planeConfidence = 0; // Gradual confidence building for stability
-        
+
+        // Kalman filter for pose smoothing
+        this.poseFilter = new PoseKalmanFilter(0.01, 0.15);
+
         // IMU data for sensor fusion
         this.imuData = {
             alpha: 0, // Z-axis rotation
@@ -395,7 +401,8 @@ export class AREngine {
             const rotY = this.imuData.gamma * (Math.PI / 180);
             const rotZ = this.imuData.alpha * (Math.PI / 180);
 
-            this.currentPose = {
+            // Create raw pose estimate
+            const rawPose = {
                 position: {
                     x: tx,
                     y: ty,
@@ -405,11 +412,20 @@ export class AREngine {
                     x: rotX,
                     y: rotY,
                     z: rotZ
-                },
+                }
+            };
+
+            // Apply Kalman filtering for smooth tracking
+            const filteredPose = this.poseFilter.filter(rawPose);
+
+            // Update current pose with filtered values
+            this.currentPose = {
+                position: filteredPose.position,
+                rotation: filteredPose.rotation,
                 planeCenter: this.groundPlane.center,
                 confidence: this.planeConfidence
             };
-            
+
             return true;
             
         } catch (error) {
@@ -483,6 +499,9 @@ export class AREngine {
         this.detectedPlanes = [];
         this.groundPlane = null;
         this.planeConfidence = 0; // Reset confidence
+
+        // Reset Kalman filter
+        this.poseFilter.reset();
 
         // Reset previous frame if it exists
         if (this.prevGrayFrame && this.prevGrayFrame.rows > 0) {
