@@ -25,6 +25,7 @@ export class AREngine {
         // Plane detection
         this.detectedPlanes = [];
         this.groundPlane = null;
+        this.planeConfidence = 0; // Gradual confidence building for stability
         
         // IMU data for sensor fusion
         this.imuData = {
@@ -279,56 +280,65 @@ export class AREngine {
 
     detectPlane() {
         if (this.trackedPoints.length < 8) {
+            // Not enough points, decrease confidence
+            this.planeConfidence = Math.max(0, this.planeConfidence - 0.1);
             return false;
         }
-        
+
         // Convert tracked points to OpenCV format
         const srcPoints = [];
         const dstPoints = [];
-        
+
         for (const pt of this.trackedPoints) {
             srcPoints.push(pt.prev.x, pt.prev.y);
             dstPoints.push(pt.curr.x, pt.curr.y);
         }
-        
+
         const srcMat = cv.matFromArray(this.trackedPoints.length, 1, cv.CV_32FC2, srcPoints);
         const dstMat = cv.matFromArray(this.trackedPoints.length, 1, cv.CV_32FC2, dstPoints);
-        
+
         try {
             // Find homography using RANSAC
             const mask = new cv.Mat();
             const H = cv.findHomography(srcMat, dstMat, cv.RANSAC, this.settings.ransacThreshold, mask);
-            
+
             // Count inliers
             let inlierCount = 0;
             for (let i = 0; i < mask.rows; i++) {
                 if (mask.data[i] > 0) inlierCount++;
             }
-            
+
             srcMat.delete();
             dstMat.delete();
             mask.delete();
-            
+
             if (inlierCount >= this.settings.minInliers && !H.empty()) {
-                // Valid plane detected
+                // Valid plane detected - gradually increase confidence
+                this.planeConfidence = Math.min(1.0, this.planeConfidence + 0.15);
+
                 this.groundPlane = {
                     homography: H,
                     inliers: inlierCount,
-                    center: this.calculatePlaneCenter()
+                    center: this.calculatePlaneCenter(),
+                    confidence: this.planeConfidence
                 };
-                
+
                 this.detectedPlanes = [this.groundPlane];
-                return true;
+
+                // Only return true if confidence is high enough
+                return this.planeConfidence > 0.5;
             }
-            
+
             if (!H.empty()) H.delete();
-            
+
         } catch (error) {
             console.warn('Plane detection error:', error);
             srcMat.delete();
             dstMat.delete();
         }
-        
+
+        // Detection failed, decrease confidence
+        this.planeConfidence = Math.max(0, this.planeConfidence - 0.1);
         return false;
     }
 
@@ -378,13 +388,13 @@ export class AREngine {
             // Estimate translation (simplified)
             const tx = h3[0] / fx;
             const ty = h3[1] / fy;
-            const tz = 1.0; // Assume fixed distance
-            
+            const tz = 3.0; // Assume fixed distance (3m is more realistic for floor)
+
             // Combine with IMU for rotation
             const rotX = this.imuData.beta * (Math.PI / 180);
             const rotY = this.imuData.gamma * (Math.PI / 180);
             const rotZ = this.imuData.alpha * (Math.PI / 180);
-            
+
             this.currentPose = {
                 position: {
                     x: tx,
@@ -396,7 +406,8 @@ export class AREngine {
                     y: rotY,
                     z: rotZ
                 },
-                planeCenter: this.groundPlane.center
+                planeCenter: this.groundPlane.center,
+                confidence: this.planeConfidence
             };
             
             return true;
