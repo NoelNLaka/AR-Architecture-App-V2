@@ -4,7 +4,7 @@
  * Enhanced with Kalman filtering for smooth pose tracking
  */
 
-import { PoseKalmanFilter } from './KalmanFilter.js';
+import { KalmanFilter, PoseKalmanFilter } from './KalmanFilter.js';
 
 export class AREngine {
     constructor() {
@@ -30,8 +30,14 @@ export class AREngine {
         this.groundPlane = null;
         this.planeConfidence = 0; // Gradual confidence building for stability
 
-        // Kalman filter for pose smoothing
-        this.poseFilter = new PoseKalmanFilter(0.01, 0.15);
+        // Kalman filters for smooth tracking
+        this.poseFilter = new PoseKalmanFilter(0.005, 0.5); // More aggressive smoothing (lower process noise, higher measurement noise)
+
+        // Separate filters for plane center smoothing
+        this.planeCenterFilter = {
+            x: new KalmanFilter(0.005, 0.3),
+            y: new KalmanFilter(0.005, 0.3)
+        };
 
         // IMU data for sensor fusion
         this.imuData = {
@@ -322,10 +328,19 @@ export class AREngine {
                 // Valid plane detected - gradually increase confidence
                 this.planeConfidence = Math.min(1.0, this.planeConfidence + 0.15);
 
+                // Calculate raw plane center
+                const rawCenter = this.calculatePlaneCenter();
+
+                // Apply Kalman filtering to plane center for smooth indicator movement
+                const filteredCenter = {
+                    x: this.planeCenterFilter.x.filter(rawCenter.x),
+                    y: this.planeCenterFilter.y.filter(rawCenter.y)
+                };
+
                 this.groundPlane = {
                     homography: H,
                     inliers: inlierCount,
-                    center: this.calculatePlaneCenter(),
+                    center: filteredCenter,
                     confidence: this.planeConfidence
                 };
 
@@ -500,8 +515,10 @@ export class AREngine {
         this.groundPlane = null;
         this.planeConfidence = 0; // Reset confidence
 
-        // Reset Kalman filter
+        // Reset Kalman filters
         this.poseFilter.reset();
+        this.planeCenterFilter.x.reset();
+        this.planeCenterFilter.y.reset();
 
         // Reset previous frame if it exists
         if (this.prevGrayFrame && this.prevGrayFrame.rows > 0) {

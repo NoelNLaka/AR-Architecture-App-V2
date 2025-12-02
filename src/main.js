@@ -321,10 +321,8 @@ class ARArchitectureApp {
 
                     // Update 3D scene
                     if (trackingResult.isTracking && this.currentModel) {
-                        // Always update camera pose for device orientation tracking
-                        this.sceneManager.updateCameraPose(trackingResult.pose);
-
                         // Only update model pose indicator BEFORE placement
+                        // Camera stays fixed at viewer position for stability
                         if (!this.sceneManager.isModelPlaced) {
                             this.sceneManager.updateModelPose(trackingResult.pose);
                         }
