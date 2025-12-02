@@ -482,9 +482,23 @@ export class AREngine {
         this.currentPose = null;
         this.detectedPlanes = [];
         this.groundPlane = null;
-        
-        if (this.prevGrayFrame.rows > 0) {
+        this.planeConfidence = 0; // Reset confidence
+
+        // Reset previous frame if it exists
+        if (this.prevGrayFrame && this.prevGrayFrame.rows > 0) {
             this.prevGrayFrame.setTo([0, 0, 0, 0]);
+        }
+
+        // Reset keypoints
+        if (this.prevKeypoints && this.prevKeypoints.size() > 0) {
+            this.prevKeypoints.delete();
+            this.prevKeypoints = new cv.KeyPointVector();
+        }
+
+        // Reset descriptors
+        if (this.prevDescriptors && !this.prevDescriptors.empty()) {
+            this.prevDescriptors.delete();
+            this.prevDescriptors = new cv.Mat();
         }
     }
 

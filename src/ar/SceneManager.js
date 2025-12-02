@@ -316,24 +316,17 @@ export class SceneManager {
         if (!pose) return;
 
         // Update camera rotation from IMU (device orientation)
-        // Note: We apply rotation to make the 3D world match device orientation
-        this.camera.rotation.x = pose.rotation.x;
-        this.camera.rotation.y = pose.rotation.y;
-        this.camera.rotation.z = pose.rotation.z;
+        // This provides 3DOF tracking (rotation only) which is more stable
+        // than trying to track position from noisy homography estimates
 
-        // Update camera position from visual tracking
-        // The pose.position represents the motion detected by the AR engine
-        // We accumulate this motion to move the camera in the 3D world
-        if (this.isModelPlaced) {
-            // After placement, update camera to maintain model's world position
-            // Negative values because camera moves opposite to scene motion
-            this.cameraOffset.x -= pose.position.x * 10; // Scale factor for sensitivity
-            this.cameraOffset.z -= pose.position.z * 10;
+        // Apply rotation with coordinate system mapping
+        // Beta (x-axis rotation) controls pitch (looking up/down)
+        // Gamma (y-axis rotation) controls roll (tilting sideways)
+        // Alpha (z-axis rotation) controls yaw (compass direction)
 
-            // Apply the offset to camera position
-            this.camera.position.x = this.initialCameraPosition.x + this.cameraOffset.x;
-            this.camera.position.z = this.initialCameraPosition.z + this.cameraOffset.z;
-        }
+        this.camera.rotation.x = pose.rotation.x; // Pitch
+        this.camera.rotation.z = pose.rotation.z; // Roll
+        // Note: Not applying yaw (y-axis) to keep model stable in view
 
         this.lastCameraUpdate = Date.now();
     }
