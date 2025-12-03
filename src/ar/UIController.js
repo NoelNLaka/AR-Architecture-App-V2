@@ -289,7 +289,12 @@ export class UIController {
         this.isDebugVisible = visible;
         document.getElementById('debug-info').classList.toggle('hidden', !visible);
         document.getElementById('setting-debug').checked = visible;
-        this.app.arEngine.setDebugVisible(visible);
+
+        // Only call setDebugVisible if the AR engine supports it (OpenCV/WebXR)
+        // GPS mode (ARLocationEngine) doesn't need debug visualization
+        if (this.app.arEngine && typeof this.app.arEngine.setDebugVisible === 'function') {
+            this.app.arEngine.setDebugVisible(visible);
+        }
     }
 
     updateARModeUI() {
