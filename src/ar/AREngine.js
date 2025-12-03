@@ -26,12 +26,32 @@ export class AREngine {
         this.detectedPlanes = [];
         this.groundPlane = null;
 
-        // IMU data for sensor fusion
+        // IMU data for sensor fusion and world tracking
         this.imuData = {
-            alpha: 0, // Z-axis rotation
-            beta: 0,  // X-axis rotation
-            gamma: 0  // Y-axis rotation
+            alpha: 0,      // Z-axis rotation (compass heading)
+            beta: 0,       // X-axis rotation (pitch)
+            gamma: 0,      // Y-axis rotation (roll)
+            absolute: false // Whether orientation is absolute
         };
+
+        // Device motion data for position tracking
+        this.motionData = {
+            acceleration: { x: 0, y: 0, z: 0 },
+            accelerationIncludingGravity: { x: 0, y: 0, z: 0 },
+            rotationRate: { alpha: 0, beta: 0, gamma: 0 }
+        };
+
+        // Camera pose tracking for world anchoring
+        this.cameraPose = {
+            position: { x: 0, y: 1.5, z: 0 }, // Start at phone height
+            velocity: { x: 0, y: 0, z: 0 },
+            rotation: { x: 0, y: 0, z: 0 }
+        };
+
+        // World tracking settings
+        this.worldTrackingEnabled = false;
+        this.motionScale = 0.5; // Scale factor for motion (tune for feel)
+        this.velocityDamping = 0.95; // Damping to prevent drift
 
         // Camera calibration (approximate for mobile)
         this.cameraMatrix = null;
@@ -100,13 +120,107 @@ export class AREngine {
     }
 
     setupIMU() {
+        // Device orientation for rotation tracking
         if (window.DeviceOrientationEvent) {
             window.addEventListener('deviceorientation', (event) => {
                 this.imuData.alpha = event.alpha || 0;
                 this.imuData.beta = event.beta || 0;
                 this.imuData.gamma = event.gamma || 0;
-            });
+                this.imuData.absolute = event.absolute || false;
+
+                // Update camera rotation when world tracking is enabled
+                if (this.worldTrackingEnabled) {
+                    this.updateCameraRotation();
+                }
+            }, true);
         }
+
+        // Device motion for position tracking
+        if (window.DeviceMotionEvent) {
+            window.addEventListener('devicemotion', (event) => {
+                if (event.acceleration) {
+                    this.motionData.acceleration.x = event.acceleration.x || 0;
+                    this.motionData.acceleration.y = event.acceleration.y || 0;
+                    this.motionData.acceleration.z = event.acceleration.z || 0;
+                }
+
+                if (event.accelerationIncludingGravity) {
+                    this.motionData.accelerationIncludingGravity.x = event.accelerationIncludingGravity.x || 0;
+                    this.motionData.accelerationIncludingGravity.y = event.accelerationIncludingGravity.y || 0;
+                    this.motionData.accelerationIncludingGravity.z = event.accelerationIncludingGravity.z || 0;
+                }
+
+                if (event.rotationRate) {
+                    this.motionData.rotationRate.alpha = event.rotationRate.alpha || 0;
+                    this.motionData.rotationRate.beta = event.rotationRate.beta || 0;
+                    this.motionData.rotationRate.gamma = event.rotationRate.gamma || 0;
+                }
+            }, true);
+        }
+
+        console.log('[AREngine] IMU and motion sensors initialized');
+    }
+
+    updateCameraRotation() {
+        // Convert device orientation to camera rotation
+        // DeviceOrientation uses different coordinate system than Three.js
+        const degToRad = Math.PI / 180;
+
+        // Beta is tilt forward/back (pitch) - maps to X rotation
+        // Gamma is tilt left/right (roll) - maps to Z rotation
+        // Alpha is compass heading (yaw) - maps to Y rotation
+
+        this.cameraPose.rotation.x = (this.imuData.beta || 0) * degToRad;
+        this.cameraPose.rotation.y = (this.imuData.alpha || 0) * degToRad;
+        this.cameraPose.rotation.z = (this.imuData.gamma || 0) * degToRad;
+    }
+
+    updateCameraPosition(deltaTime) {
+        if (!this.worldTrackingEnabled) return;
+
+        // Use acceleration to update velocity and position
+        // Note: This will drift without visual correction, but gives basic movement
+        const acc = this.motionData.acceleration;
+
+        // Apply acceleration to velocity (with scaling)
+        this.cameraPose.velocity.x += acc.x * this.motionScale * deltaTime;
+        this.cameraPose.velocity.y += acc.y * this.motionScale * deltaTime;
+        this.cameraPose.velocity.z += acc.z * this.motionScale * deltaTime;
+
+        // Apply damping to reduce drift
+        this.cameraPose.velocity.x *= this.velocityDamping;
+        this.cameraPose.velocity.y *= this.velocityDamping;
+        this.cameraPose.velocity.z *= this.velocityDamping;
+
+        // Update position based on velocity
+        this.cameraPose.position.x += this.cameraPose.velocity.x * deltaTime;
+        this.cameraPose.position.y += this.cameraPose.velocity.y * deltaTime;
+        this.cameraPose.position.z += this.cameraPose.velocity.z * deltaTime;
+
+        // Keep camera at reasonable height (don't drift too far up/down)
+        if (this.cameraPose.position.y < 0.5) this.cameraPose.position.y = 0.5;
+        if (this.cameraPose.position.y > 3.0) this.cameraPose.position.y = 3.0;
+    }
+
+    enableWorldTracking() {
+        this.worldTrackingEnabled = true;
+        console.log('[AREngine] World tracking enabled');
+    }
+
+    disableWorldTracking() {
+        this.worldTrackingEnabled = false;
+        // Reset camera pose
+        this.cameraPose.position = { x: 0, y: 1.5, z: 0 };
+        this.cameraPose.velocity = { x: 0, y: 0, z: 0 };
+        this.cameraPose.rotation = { x: 0, y: 0, z: 0 };
+        console.log('[AREngine] World tracking disabled');
+    }
+
+    getCameraPose() {
+        return {
+            position: { ...this.cameraPose.position },
+            rotation: { ...this.cameraPose.rotation }
+        };
     }
 
     processFrame(video) {

@@ -180,13 +180,14 @@ class ARArchitectureApp {
         let lastTime = performance.now();
         let frameCount = 0;
         let fpsUpdateTime = lastTime;
-        
+
         const loop = () => {
             if (!this.isInitialized) return;
-            
+
             const now = performance.now();
+            const deltaTime = (now - lastTime) / 1000; // Convert to seconds
             frameCount++;
-            
+
             // Update FPS display every second
             if (now - fpsUpdateTime >= 1000) {
                 const fps = Math.round(frameCount * 1000 / (now - fpsUpdateTime));
@@ -194,6 +195,13 @@ class ARArchitectureApp {
                 frameCount = 0;
                 fpsUpdateTime = now;
             }
+
+            // Update camera position from device motion
+            this.arEngine.updateCameraPosition(deltaTime);
+
+            // Update Three.js camera from tracked pose
+            const cameraPose = this.arEngine.getCameraPose();
+            this.sceneManager.updateCameraFromPose(cameraPose);
             
             // Process frame with OpenCV - ensure video is ready and has valid dimensions
             if (video.readyState === video.HAVE_ENOUGH_DATA &&
@@ -306,13 +314,21 @@ class ARArchitectureApp {
         console.log('[Main] placeModel called');
         console.log('[Main] currentModel:', !!this.currentModel);
         console.log('[Main] currentPose:', this.arEngine.currentPose);
-        
+
         if (this.currentModel && this.arEngine.currentPose) {
             const result = this.sceneManager.placeModel(this.arEngine.currentPose);
             console.log('[Main] placeModel result:', result);
+
+            // Enable world tracking so model stays anchored
+            if (result) {
+                this.arEngine.enableWorldTracking();
+                this.sceneManager.enableWorldTracking();
+                console.log('[Main] World tracking enabled - you can now walk around the model!');
+            }
+
             return result;
         }
-        
+
         console.warn('[Main] Cannot place - missing model or pose');
         return false;
     }
@@ -320,6 +336,11 @@ class ARArchitectureApp {
     resetModel() {
         this.sceneManager.resetModel();
         this.arEngine.reset();
+
+        // Disable world tracking
+        this.arEngine.disableWorldTracking();
+        this.sceneManager.disableWorldTracking();
+        console.log('[Main] World tracking disabled');
     }
 
     setModelScale(scale) {

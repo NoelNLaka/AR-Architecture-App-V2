@@ -28,7 +28,12 @@ export class SceneManager {
         
         // Last known pose for placement
         this.lastPose = null;
-        
+
+        // World tracking
+        this.worldTrackingEnabled = false;
+        this.initialCameraPosition = new THREE.Vector3(0, 1.5, 0);
+        this.initialCameraRotation = new THREE.Euler(0, 0, 0);
+
         // Animation
         this.mixer = null;
         this.clock = new THREE.Clock();
@@ -362,6 +367,44 @@ export class SceneManager {
         }
         
         this.renderer.render(this.scene, this.camera);
+    }
+
+    updateCameraFromPose(cameraPose) {
+        if (!this.worldTrackingEnabled || !cameraPose) return;
+
+        // Update camera position
+        this.camera.position.set(
+            cameraPose.position.x,
+            cameraPose.position.y,
+            cameraPose.position.z
+        );
+
+        // Update camera rotation
+        // Note: DeviceOrientation coordinate system needs adjustment for Three.js
+        // We invert some axes to match the expected camera behavior
+        this.camera.rotation.order = 'YXZ'; // Important: set rotation order
+        this.camera.rotation.set(
+            -cameraPose.rotation.x, // Pitch (inverted for correct tilt)
+            cameraPose.rotation.y,   // Yaw (compass heading)
+            -cameraPose.rotation.z   // Roll (inverted for correct tilt)
+        );
+    }
+
+    enableWorldTracking() {
+        this.worldTrackingEnabled = true;
+        // Store initial camera state
+        this.initialCameraPosition.copy(this.camera.position);
+        this.initialCameraRotation.copy(this.camera.rotation);
+        console.log('[SceneManager] World tracking enabled');
+    }
+
+    disableWorldTracking() {
+        this.worldTrackingEnabled = false;
+        // Reset camera to initial position
+        this.camera.position.copy(this.initialCameraPosition);
+        this.camera.rotation.copy(this.initialCameraRotation);
+        this.camera.lookAt(0, 0, -3);
+        console.log('[SceneManager] World tracking disabled');
     }
 
     onResize() {
