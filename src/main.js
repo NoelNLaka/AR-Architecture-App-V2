@@ -38,6 +38,10 @@ class ARArchitectureApp {
             const urlParams = new URLSearchParams(window.location.search);
             this.isOutdoorMode = urlParams.get('mode') === 'outdoor';
 
+            console.log('[Main] AR App initializing...');
+            console.log('[Main] URL parameters:', window.location.search);
+            console.log('[Main] Outdoor mode:', this.isOutdoorMode);
+
             if (this.isOutdoorMode) {
                 // User wants outdoor GPS-based AR
                 console.log('[Main] Outdoor mode requested - using GPS-based AR');
@@ -210,6 +214,12 @@ class ARArchitectureApp {
     }
 
     showStartARButton() {
+        // Only show button if in WebXR mode (not GPS mode)
+        if (this.arMode === 'location') {
+            console.log('[Main] Skipping WebXR button creation - in GPS mode');
+            return;
+        }
+
         // Create and show a button to start WebXR session
         const startButton = document.createElement('button');
         startButton.id = 'start-ar-btn';
@@ -230,6 +240,14 @@ class ARArchitectureApp {
         `;
 
         startButton.onclick = async () => {
+            // Double-check we're still in WebXR mode
+            if (this.arMode !== 'webxr' || !this.arEngine.startSession) {
+                console.error('[Main] Cannot start WebXR - wrong AR mode or engine');
+                alert('WebXR not available in current mode');
+                startButton.remove();
+                return;
+            }
+
             try {
                 const canvas = document.getElementById('ar-canvas');
                 await this.arEngine.startSession(canvas);
