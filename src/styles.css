@@ -405,6 +405,115 @@ body {
     display: none;
 }
 
+/* GPS AR Overlay */
+#gps-ar-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+#gps-ar-overlay.hidden {
+    display: none;
+}
+
+/* AR Compass */
+#ar-compass {
+    position: absolute;
+    top: 80px;
+    left: 15px;
+    width: 140px;
+    height: 180px;
+    background: rgba(0, 0, 0, 0.6);
+    border-radius: 15px;
+    padding: 10px;
+    backdrop-filter: blur(10px);
+    border: 2px solid rgba(79, 195, 247, 0.5);
+}
+
+.compass-svg {
+    width: 100%;
+    height: 120px;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+}
+
+#compass-needle {
+    transform-origin: 100px 100px;
+    transition: transform 0.3s ease-out;
+}
+
+.compass-info {
+    margin-top: 5px;
+    text-align: center;
+    color: white;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+#compass-bearing {
+    font-size: 16px;
+    color: #4fc3f7;
+    margin-bottom: 2px;
+}
+
+#compass-distance {
+    font-size: 11px;
+    color: #aaa;
+}
+
+/* Distance Indicator */
+#distance-indicator {
+    position: absolute;
+    bottom: 120px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 280px;
+    background: rgba(0, 0, 0, 0.6);
+    border-radius: 12px;
+    padding: 12px 15px;
+    backdrop-filter: blur(10px);
+    border: 2px solid rgba(79, 195, 247, 0.5);
+}
+
+.distance-bar {
+    width: 100%;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 8px;
+}
+
+#distance-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #4fc3f7, #29b6f6);
+    border-radius: 3px;
+    transition: width 0.3s ease-out;
+}
+
+.distance-text {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: white;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+#distance-value {
+    font-size: 18px;
+    color: #4fc3f7;
+}
+
+#distance-direction {
+    font-size: 12px;
+    color: #aaa;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
 /* Setting Sections */
 .setting-section {
     margin-bottom: 25px;
@@ -493,6 +602,83 @@ body {
     opacity: 0.5;
     cursor: not-allowed;
     transform: none;
+}
+
+.setting-btn.secondary {
+    background: linear-gradient(135deg, #7e57c2, #5e35b1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.setting-btn.secondary:hover,
+.setting-btn.secondary:active {
+    background: linear-gradient(135deg, #5e35b1, #4527a0);
+}
+
+.setting-divider {
+    text-align: center;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin: 15px 0;
+    position: relative;
+}
+
+.setting-divider::before,
+.setting-divider::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    width: 30%;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.setting-divider::before {
+    left: 0;
+}
+
+.setting-divider::after {
+    right: 0;
+}
+
+.gps-info {
+    margin-top: 15px;
+    padding: 12px;
+    background: rgba(79, 195, 247, 0.15);
+    border-radius: 8px;
+    border-left: 3px solid #4fc3f7;
+}
+
+.gps-info.hidden {
+    display: none;
+}
+
+.info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    font-size: 12px;
+}
+
+.info-row:last-child {
+    margin-bottom: 0;
+}
+
+.info-label {
+    color: rgba(255, 255, 255, 0.7);
+    font-weight: 500;
+}
+
+.info-row span:last-child {
+    color: #4fc3f7;
+    font-weight: 600;
+    font-family: monospace;
 }
 
 .gps-status {

@@ -437,6 +437,11 @@ class ARArchitectureApp {
             // Update UI based on GPS tracking status
             this.updateTrackingStatus(trackingResult);
 
+            // Update GPS visualization (compass, distance indicator)
+            if (this.uiController && trackingResult.gpsData) {
+                this.uiController.updateGPSVisualization(trackingResult.gpsData);
+            }
+
             // Update camera rotation from device orientation
             if (trackingResult.pose) {
                 this.sceneManager.updateCameraPose(trackingResult.pose);
@@ -465,8 +470,21 @@ class ARArchitectureApp {
                 indicator.classList.add('status-tracking');
                 const distance = result.gpsData.distance.toFixed(1);
                 const accuracy = result.gpsData.currentLocation?.accuracy.toFixed(1);
-                text.textContent = `Target: ${distance}m away (±${accuracy}m accuracy)`;
+                const bearing = Math.round(result.gpsData.bearing);
+
+                // Get direction text
+                const getDirection = (b) => {
+                    const dirs = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+                    return dirs[Math.round(((b % 360) / 45)) % 8];
+                };
+
+                text.textContent = `📍 ${distance}m ${getDirection(bearing)} (GPS ±${accuracy}m)`;
                 placeBtn.disabled = false;
+            } else if (result.gpsData && result.gpsData.currentLocation && !result.gpsData.targetLocation) {
+                indicator.classList.add('status-searching');
+                const accuracy = result.gpsData.currentLocation.accuracy.toFixed(1);
+                text.textContent = `GPS Ready (±${accuracy}m) - Set target location`;
+                placeBtn.disabled = true;
             } else {
                 indicator.classList.add('status-searching');
                 text.textContent = 'Acquiring GPS location...';

@@ -86,6 +86,50 @@
                 <label>Rotation: <span id="rotation-value">0°</span></label>
                 <input type="range" id="rotation-slider" min="0" max="360" step="1" value="0">
             </div>
+
+            <!-- GPS AR Overlay (only visible in outdoor mode) -->
+            <div id="gps-ar-overlay" class="hidden">
+                <!-- Compass -->
+                <div id="ar-compass">
+                    <svg viewBox="0 0 200 200" class="compass-svg">
+                        <!-- Compass circle -->
+                        <circle cx="100" cy="100" r="90" fill="rgba(0,0,0,0.3)" stroke="rgba(255,255,255,0.5)" stroke-width="2"/>
+
+                        <!-- Cardinal directions -->
+                        <text x="100" y="25" text-anchor="middle" fill="white" font-size="20" font-weight="bold">N</text>
+                        <text x="175" y="105" text-anchor="middle" fill="white" font-size="16">E</text>
+                        <text x="100" y="185" text-anchor="middle" fill="white" font-size="16">S</text>
+                        <text x="25" y="105" text-anchor="middle" fill="white" font-size="16">W</text>
+
+                        <!-- Compass needle (points to target) -->
+                        <g id="compass-needle" transform="rotate(0 100 100)">
+                            <!-- North pointer (red) -->
+                            <path d="M 100 40 L 105 100 L 100 95 L 95 100 Z" fill="#ff4444" stroke="white" stroke-width="1"/>
+                            <!-- South pointer (white) -->
+                            <path d="M 100 160 L 105 100 L 100 105 L 95 100 Z" fill="white" stroke="#666" stroke-width="1"/>
+                        </g>
+
+                        <!-- Center dot -->
+                        <circle cx="100" cy="100" r="5" fill="white"/>
+                    </svg>
+
+                    <div class="compass-info">
+                        <div id="compass-bearing">—°</div>
+                        <div id="compass-distance">— m</div>
+                    </div>
+                </div>
+
+                <!-- Distance Indicator -->
+                <div id="distance-indicator">
+                    <div class="distance-bar">
+                        <div id="distance-bar-fill" style="width: 0%"></div>
+                    </div>
+                    <div class="distance-text">
+                        <span id="distance-value">— m</span>
+                        <span id="distance-direction">away</span>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Model Selection Panel -->
@@ -132,6 +176,12 @@
                         </select>
                     </div>
                     <div id="gps-settings" class="setting-group hidden">
+                        <button id="btn-use-my-location" class="setting-btn secondary">
+                            <span>📍</span> Use My Location as Target
+                        </button>
+
+                        <div class="setting-divider">or enter manually</div>
+
                         <div class="setting-item">
                             <label>Target Latitude</label>
                             <input type="number" id="setting-gps-lat" step="0.000001" placeholder="e.g., 40.748817">
@@ -145,6 +195,18 @@
                             <input type="number" id="setting-gps-alt" step="0.1" value="0" placeholder="0">
                         </div>
                         <button id="btn-set-gps-target" class="setting-btn">Set GPS Target</button>
+
+                        <div id="current-location-info" class="gps-info hidden">
+                            <div class="info-row">
+                                <span class="info-label">Your Location:</span>
+                                <span id="current-lat-lon">—</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">GPS Accuracy:</span>
+                                <span id="current-accuracy">—</span>
+                            </div>
+                        </div>
+
                         <div id="gps-status" class="gps-status"></div>
                     </div>
                 </div>

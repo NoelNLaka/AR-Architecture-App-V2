@@ -120,8 +120,18 @@ export class UIController {
             this.onSetGPSTarget();
         });
 
+        // Use My Location button
+        document.getElementById('btn-use-my-location').addEventListener('click', () => {
+            this.onUseMyLocation();
+        });
+
         // Initialize AR mode selector based on current mode
         this.updateARModeUI();
+
+        // Show GPS overlay if in location mode
+        if (this.app.arMode === 'location') {
+            this.showGPSOverlay();
+        }
 
         // Touch gestures for model manipulation
         this.setupTouchGestures();
@@ -382,5 +392,124 @@ export class UIController {
             statusDiv.className = 'gps-status error';
             statusDiv.textContent = 'Failed to set target: ' + error.message;
         }
+    }
+
+    onUseMyLocation() {
+        const statusDiv = document.getElementById('gps-status');
+
+        if (this.app.arMode !== 'location') {
+            statusDiv.className = 'gps-status error';
+            statusDiv.textContent = 'GPS mode not active. Switch to Outdoor mode first.';
+            return;
+        }
+
+        if (!this.app.arEngine.currentLocation) {
+            statusDiv.className = 'gps-status info';
+            statusDiv.textContent = 'Acquiring GPS location... Please wait.';
+            return;
+        }
+
+        // Set current location as target
+        const loc = this.app.arEngine.currentLocation;
+
+        // Auto-fill the inputs
+        document.getElementById('setting-gps-lat').value = loc.latitude.toFixed(6);
+        document.getElementById('setting-gps-lon').value = loc.longitude.toFixed(6);
+        document.getElementById('setting-gps-alt').value = loc.altitude?.toFixed(1) || 0;
+
+        // Set as target
+        this.app.arEngine.setTargetLocation(loc.latitude, loc.longitude, loc.altitude || 0);
+
+        statusDiv.className = 'gps-status success';
+        statusDiv.textContent = `Target set to your location (±${loc.accuracy.toFixed(1)}m accuracy)`;
+
+        // Show current location info
+        this.updateCurrentLocationInfo();
+    }
+
+    updateCurrentLocationInfo() {
+        if (!this.app.arEngine || !this.app.arEngine.currentLocation) {
+            return;
+        }
+
+        const loc = this.app.arEngine.currentLocation;
+        const infoDiv = document.getElementById('current-location-info');
+        const latLonSpan = document.getElementById('current-lat-lon');
+        const accuracySpan = document.getElementById('current-accuracy');
+
+        latLonSpan.textContent = `${loc.latitude.toFixed(6)}, ${loc.longitude.toFixed(6)}`;
+        accuracySpan.textContent = `±${loc.accuracy.toFixed(1)}m`;
+
+        infoDiv.classList.remove('hidden');
+    }
+
+    showGPSOverlay() {
+        const overlay = document.getElementById('gps-ar-overlay');
+        if (overlay) {
+            overlay.classList.remove('hidden');
+        }
+    }
+
+    hideGPSOverlay() {
+        const overlay = document.getElementById('gps-ar-overlay');
+        if (overlay) {
+            overlay.classList.add('hidden');
+        }
+    }
+
+    updateGPSVisualization(gpsData) {
+        if (!gpsData || !gpsData.targetLocation || gpsData.distance === null) {
+            return;
+        }
+
+        // Update compass needle
+        const needle = document.getElementById('compass-needle');
+        if (needle && gpsData.bearing !== null) {
+            needle.setAttribute('transform', `rotate(${gpsData.bearing} 100 100)`);
+        }
+
+        // Update compass text
+        document.getElementById('compass-bearing').textContent = `${Math.round(gpsData.bearing)}°`;
+        document.getElementById('compass-distance').textContent = `${gpsData.distance.toFixed(1)}m`;
+
+        // Update distance indicator
+        const maxDistance = this.app.arEngine.maxDistance || 1000;
+        const distancePercent = Math.min(100, (gpsData.distance / maxDistance) * 100);
+
+        document.getElementById('distance-bar-fill').style.width = `${distancePercent}%`;
+        document.getElementById('distance-value').textContent = `${gpsData.distance.toFixed(1)} m`;
+
+        // Update direction text
+        const direction = this.getDirectionText(gpsData.bearing);
+        document.getElementById('distance-direction').textContent = direction;
+
+        // Update current location info if visible
+        if (gpsData.currentLocation) {
+            this.updateCurrentLocationInfo();
+        }
+    }
+
+    getDirectionText(bearing) {
+        if (bearing === null) return 'away';
+
+        const directions = [
+            { min: 337.5, max: 360, text: 'North' },
+            { min: 0, max: 22.5, text: 'North' },
+            { min: 22.5, max: 67.5, text: 'Northeast' },
+            { min: 67.5, max: 112.5, text: 'East' },
+            { min: 112.5, max: 157.5, text: 'Southeast' },
+            { min: 157.5, max: 202.5, text: 'South' },
+            { min: 202.5, max: 247.5, text: 'Southwest' },
+            { min: 247.5, max: 292.5, text: 'West' },
+            { min: 292.5, max: 337.5, text: 'Northwest' }
+        ];
+
+        for (const dir of directions) {
+            if (bearing >= dir.min && bearing < dir.max) {
+                return dir.text;
+            }
+        }
+
+        return 'away';
     }
 }
