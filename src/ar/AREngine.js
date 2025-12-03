@@ -9,34 +9,34 @@ export class AREngine {
         this.frame = null;
         this.grayFrame = null;
         this.prevGrayFrame = null;
-        
+
         // Feature detection
         this.orb = null;
         this.keypoints = null;
         this.descriptors = null;
         this.prevKeypoints = null;
         this.prevDescriptors = null;
-        
+
         // Tracking
         this.isTracking = false;
         this.trackedPoints = [];
         this.currentPose = null;
-        
+
         // Plane detection
         this.detectedPlanes = [];
         this.groundPlane = null;
-        
+
         // IMU data for sensor fusion
         this.imuData = {
             alpha: 0, // Z-axis rotation
             beta: 0,  // X-axis rotation
             gamma: 0  // Y-axis rotation
         };
-        
+
         // Camera calibration (approximate for mobile)
         this.cameraMatrix = null;
         this.distCoeffs = null;
-        
+
         // Settings
         this.settings = {
             maxFeatures: 500,
@@ -48,7 +48,11 @@ export class AREngine {
             ransacThreshold: 3.0,
             minInliers: 10
         };
-        
+
+        // Canvas for video capture (more reliable than VideoCapture)
+        this.cvCanvas = document.getElementById('cv-canvas');
+        this.cvCtx = this.cvCanvas?.getContext('2d', { willReadFrequently: true });
+
         // Debug canvas
         this.debugCanvas = document.getElementById('debug-canvas');
         this.debugCtx = this.debugCanvas?.getContext('2d');
@@ -118,22 +122,28 @@ export class AREngine {
         try {
             // Validate video dimensions before processing
             if (!video.videoWidth || !video.videoHeight || video.videoWidth === 0 || video.videoHeight === 0) {
-                console.warn('[AREngine] Invalid video dimensions:', video.videoWidth, 'x', video.videoHeight);
-                return result;
+                return result; // Silently skip if video not ready
             }
 
-            // Initialize or recreate frame if video dimensions changed
-            if (!this.frame ||
-                this.frame.rows !== video.videoHeight ||
-                this.frame.cols !== video.videoWidth) {
+            // Initialize canvas and matrices on first frame or dimension change
+            if (!this.cvCanvas ||
+                this.cvCanvas.width !== video.videoWidth ||
+                this.cvCanvas.height !== video.videoHeight) {
 
-                console.log('[AREngine] Initializing frame matrices with dimensions:', video.videoWidth, 'x', video.videoHeight);
+                console.log('[AREngine] Initializing with dimensions:', video.videoWidth, 'x', video.videoHeight);
+
+                // Setup CV canvas to match video
+                if (this.cvCanvas) {
+                    this.cvCanvas.width = video.videoWidth;
+                    this.cvCanvas.height = video.videoHeight;
+                }
 
                 // Clean up old matrices if they exist
                 if (this.frame) this.frame.delete();
                 if (this.grayFrame) this.grayFrame.delete();
                 if (this.prevGrayFrame) this.prevGrayFrame.delete();
 
+                // Create new matrices
                 this.frame = new cv.Mat(video.videoHeight, video.videoWidth, cv.CV_8UC4);
                 this.grayFrame = new cv.Mat();
                 this.prevGrayFrame = new cv.Mat();
@@ -148,21 +158,22 @@ export class AREngine {
                 this.initCameraMatrix(video.videoWidth, video.videoHeight);
             }
 
-            // Verify frame size still matches before reading (dimensions could have changed)
-            if (this.frame.rows !== video.videoHeight || this.frame.cols !== video.videoWidth) {
-                console.warn('[AREngine] Frame size mismatch after initialization, skipping frame');
-                return result;
-            }
-
-            // Read frame from video with error handling
+            // Draw video frame to canvas, then read into OpenCV Mat
+            // This is more reliable than VideoCapture for HTML video elements
             try {
-                const cap = new cv.VideoCapture(video);
-                cap.read(this.frame);
+                this.cvCtx.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
+
+                // cv.imread creates a new Mat, so delete old one first
+                const oldFrame = this.frame;
+                this.frame = cv.imread(this.cvCanvas);
+                if (oldFrame && oldFrame !== this.frame) {
+                    oldFrame.delete();
+                }
             } catch (readError) {
                 console.warn('[AREngine] Failed to read frame:', readError.message);
                 return result;
             }
-            
+
             // Convert to grayscale
             cv.cvtColor(this.frame, this.grayFrame, cv.COLOR_RGBA2GRAY);
             
