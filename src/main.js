@@ -92,6 +92,12 @@ class ARArchitectureApp {
     async initLocationMode() {
         this.updateLoadingStatus('Checking GPS support...', 10);
 
+        // Remove any WebXR "Start AR" button if it exists
+        const existingButton = document.getElementById('start-ar-btn');
+        if (existingButton) {
+            existingButton.remove();
+        }
+
         try {
             // Check GPS support
             const locationEngine = new ARLocationEngine();
