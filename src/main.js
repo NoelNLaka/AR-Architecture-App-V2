@@ -46,50 +46,60 @@ class ARArchitectureApp {
                 // User wants outdoor GPS-based AR
                 console.log('[Main] Outdoor mode requested - using GPS-based AR');
                 await this.initLocationMode();
+                // initLocationMode handles its own errors and fallback
+                // If we reach here, GPS mode is initialized successfully
+                return;
+            }
+
+            // Indoor mode - try WebXR first, fall back to OpenCV
+            console.log('[Main] Indoor mode - checking WebXR support');
+            this.updateLoadingStatus('Checking WebXR support...', 10);
+
+            const webxrEngine = new WebXREngine();
+            const webxrSupported = await webxrEngine.checkSupport();
+
+            if (webxrSupported) {
+                console.log('[Main] Using WebXR for indoor AR tracking');
+                this.arMode = 'webxr';
+                this.arEngine = webxrEngine;
+                await this.arEngine.init();
+
+                // Initialize Three.js scene
+                this.updateLoadingStatus('Setting up 3D scene...', 40);
+                this.sceneManager = new SceneManager();
+                await this.sceneManager.init();
+
+                // Initialize model loader
+                this.updateLoadingStatus('Preparing model loader...', 70);
+                this.modelLoader = new ModelLoader(this.sceneManager);
+
+                // Initialize UI
+                this.updateLoadingStatus('Setting up controls...', 90);
+                this.uiController = new UIController(this);
+
+                this.updateLoadingStatus('Ready! Tap "Start AR" to begin', 100);
+                this.hideLoadingScreen();
+
+                // WebXR requires user interaction to start
+                this.showStartARButton();
+
             } else {
-                // Indoor mode - try WebXR first, fall back to OpenCV
-                this.updateLoadingStatus('Checking WebXR support...', 10);
-
-                const webxrEngine = new WebXREngine();
-                const webxrSupported = await webxrEngine.checkSupport();
-
-                if (webxrSupported) {
-                    console.log('[Main] Using WebXR for indoor AR tracking');
-                    this.arMode = 'webxr';
-                    this.arEngine = webxrEngine;
-                    await this.arEngine.init();
-
-                    // Initialize Three.js scene
-                    this.updateLoadingStatus('Setting up 3D scene...', 40);
-                    this.sceneManager = new SceneManager();
-                    await this.sceneManager.init();
-
-                    // Initialize model loader
-                    this.updateLoadingStatus('Preparing model loader...', 70);
-                    this.modelLoader = new ModelLoader(this.sceneManager);
-
-                    // Initialize UI
-                    this.updateLoadingStatus('Setting up controls...', 90);
-                    this.uiController = new UIController(this);
-
-                    this.updateLoadingStatus('Ready! Tap "Start AR" to begin', 100);
-                    this.hideLoadingScreen();
-
-                    // WebXR requires user interaction to start
-                    this.showStartARButton();
-
-                } else {
-                    // Fall back to OpenCV-based tracking with Kalman filtering
-                    console.log('[Main] WebXR not supported, using OpenCV with Kalman filtering');
-                    await this.initOpenCVMode();
-                }
+                // Fall back to OpenCV-based tracking with Kalman filtering
+                console.log('[Main] WebXR not supported, using OpenCV with Kalman filtering');
+                await this.initOpenCVMode();
             }
 
         } catch (error) {
-            console.error('Initialization error:', error);
-            // Fall back to OpenCV mode on any error
-            console.log('[Main] Falling back to OpenCV mode');
-            await this.initOpenCVMode();
+            console.error('[Main] Initialization error:', error);
+            // Only fall back to OpenCV if we're NOT in outdoor mode
+            if (!this.isOutdoorMode && this.arMode !== 'location') {
+                console.log('[Main] Falling back to OpenCV mode');
+                this.arMode = 'opencv'; // Explicitly set mode before fallback
+                await this.initOpenCVMode();
+            } else {
+                console.error('[Main] Cannot fall back - already in GPS/outdoor mode');
+                this.showError('AR initialization failed: ' + error.message);
+            }
         }
     }
 
