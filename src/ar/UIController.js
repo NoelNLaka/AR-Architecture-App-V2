@@ -5,18 +5,18 @@
 export class UIController {
     constructor(app) {
         this.app = app;
-        this.isDebugVisible = true; // Enable debug by default
+        this.isDebugVisible = false; // Disable debug by default (was blocking camera)
         this.currentModelId = 'default-house';
-        
+
         this.init();
     }
 
     init() {
         this.bindEvents();
-        
-        // Enable debug view by default for troubleshooting
-        this.setDebugVisible(true);
-        
+
+        // Keep debug view hidden by default
+        this.setDebugVisible(false);
+
         // Load default model
         this.loadModel('default-house');
     }

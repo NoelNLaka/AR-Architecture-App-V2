@@ -202,36 +202,38 @@ export class SceneManager {
             console.warn('[SceneManager] No model to place');
             return false;
         }
-        
+
         console.log('[SceneManager] placeModel called with pose:', pose);
-        
-        // Use the pose's planeCenter (screen coordinates) to determine world position
-        const screenX = pose.planeCenter.x;
-        const screenY = pose.planeCenter.y;
-        
-        console.log('[SceneManager] Screen coords:', screenX, screenY);
+
+        // Place model at screen center (where crosshair is) not at plane center
+        // Crosshair is at 50% of screen width and height
+        const screenX = this.screenWidth / 2;
+        const screenY = this.screenHeight / 2;
+
+        console.log('[SceneManager] Screen center (crosshair):', screenX, screenY);
         console.log('[SceneManager] Screen size:', this.screenWidth, this.screenHeight);
-        
+
         // Convert screen coordinates to normalized device coordinates (-1 to 1)
-        const ndcX = (screenX / this.screenWidth) * 2 - 1;
-        const ndcY = -(screenY / this.screenHeight) * 2 + 1;
-        
+        // At center: (0, 0) in NDC
+        const ndcX = 0;
+        const ndcY = 0;
+
         console.log('[SceneManager] NDC:', ndcX, ndcY);
-        
-        // Create raycaster
+
+        // Create raycaster from screen center
         const raycaster = new THREE.Raycaster();
         raycaster.setFromCamera(new THREE.Vector2(ndcX, ndcY), this.camera);
-        
+
         // Intersect with virtual ground plane at y=0
         const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
         const intersectionPoint = new THREE.Vector3();
-        
+
         const intersected = raycaster.ray.intersectPlane(groundPlane, intersectionPoint);
-        
+
         if (intersected) {
             console.log('[SceneManager] Intersection point:', intersectionPoint);
-            
-            // Position model at intersection
+
+            // Position model at intersection (where crosshair points)
             this.modelGroup.position.set(
                 intersectionPoint.x,
                 0,
@@ -242,28 +244,28 @@ export class SceneManager {
             console.log('[SceneManager] No intersection, using fallback position');
             this.modelGroup.position.set(0, 0, -2);
         }
-        
+
         // Apply rotation
         this.modelGroup.rotation.y = this.modelRotation * (Math.PI / 180);
-        
+
         // Show model
         this.modelGroup.visible = true;
-        
+
         // Show and position shadow plane
         this.shadowPlane.visible = true;
         this.shadowPlane.position.x = this.modelGroup.position.x;
         this.shadowPlane.position.z = this.modelGroup.position.z;
-        
+
         // Hide indicators
         this.groundIndicator.visible = false;
         this.gridHelper.visible = false;
-        
+
         this.isModelPlaced = true;
         this.placedPosition.copy(this.modelGroup.position);
-        
+
         console.log('[SceneManager] Model placed at:', this.modelGroup.position);
         console.log('[SceneManager] Model visible:', this.modelGroup.visible);
-        
+
         return true;
     }
 

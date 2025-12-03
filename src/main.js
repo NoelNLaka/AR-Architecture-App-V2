@@ -91,7 +91,9 @@ class ARArchitectureApp {
 
     async initCamera() {
         const video = document.getElementById('camera-feed');
-        
+
+        console.log('[Camera] Requesting camera access...');
+
         // Try rear camera first
         const constraints = {
             video: {
@@ -106,37 +108,69 @@ class ARArchitectureApp {
         try {
             const stream = await navigator.mediaDevices.getUserMedia(constraints);
             video.srcObject = stream;
-            
+
+            console.log('[Camera] Camera stream obtained, waiting for video to load...');
+            console.log('[Camera] Stream tracks:', stream.getVideoTracks().map(t => ({
+                label: t.label,
+                enabled: t.enabled,
+                readyState: t.readyState
+            })));
+
             return new Promise((resolve, reject) => {
                 video.onloadedmetadata = () => {
+                    console.log('[Camera] Video metadata loaded, dimensions:', video.videoWidth, 'x', video.videoHeight);
                     video.play()
-                        .then(resolve)
-                        .catch(reject);
+                        .then(() => {
+                            console.log('[Camera] Video playing successfully');
+                            resolve();
+                        })
+                        .catch((playError) => {
+                            console.error('[Camera] Video play error:', playError);
+                            reject(playError);
+                        });
                 };
-                video.onerror = (e) => reject(new Error('Video error: ' + e.message));
-                
+                video.onerror = (e) => {
+                    console.error('[Camera] Video element error:', e);
+                    reject(new Error('Video error: ' + e.message));
+                };
+
                 // Timeout for video initialization
-                setTimeout(() => reject(new Error('Camera initialization timeout')), 10000);
+                setTimeout(() => {
+                    console.error('[Camera] Camera initialization timeout');
+                    reject(new Error('Camera initialization timeout'));
+                }, 10000);
             });
-            
+
         } catch (error) {
-            console.warn('Preferred camera not available:', error.message);
-            
+            console.warn('[Camera] Preferred camera not available:', error.name, error.message);
+
             // Fallback to any camera
             try {
+                console.log('[Camera] Trying fallback camera...');
                 const fallbackStream = await navigator.mediaDevices.getUserMedia({
                     video: true,
                     audio: false
                 });
                 video.srcObject = fallbackStream;
-                
-                return new Promise((resolve) => {
+
+                console.log('[Camera] Fallback stream obtained');
+
+                return new Promise((resolve, reject) => {
                     video.onloadedmetadata = () => {
-                        video.play().then(resolve);
+                        console.log('[Camera] Fallback video metadata loaded');
+                        video.play()
+                            .then(() => {
+                                console.log('[Camera] Fallback video playing');
+                                resolve();
+                            })
+                            .catch(reject);
                     };
+
+                    setTimeout(() => reject(new Error('Fallback camera timeout')), 10000);
                 });
             } catch (fallbackError) {
-                throw new Error('Camera access denied. Please allow camera permission and reload.');
+                console.error('[Camera] Fallback camera failed:', fallbackError.name, fallbackError.message);
+                throw new Error(`Camera access denied: ${fallbackError.message}. Please allow camera permissions in your browser settings and reload the page.`);
             }
         }
     }
