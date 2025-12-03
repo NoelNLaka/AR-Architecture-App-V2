@@ -116,22 +116,38 @@ export class AREngine {
         };
 
         try {
-            // Capture frame from video
-            if (!this.frame) {
+            // Validate video dimensions before processing
+            if (!video.videoWidth || !video.videoHeight || video.videoWidth === 0 || video.videoHeight === 0) {
+                console.warn('[AREngine] Invalid video dimensions:', video.videoWidth, 'x', video.videoHeight);
+                return result;
+            }
+
+            // Initialize or recreate frame if video dimensions changed
+            if (!this.frame ||
+                this.frame.rows !== video.videoHeight ||
+                this.frame.cols !== video.videoWidth) {
+
+                console.log('[AREngine] Initializing frame matrices with dimensions:', video.videoWidth, 'x', video.videoHeight);
+
+                // Clean up old matrices if they exist
+                if (this.frame) this.frame.delete();
+                if (this.grayFrame) this.grayFrame.delete();
+                if (this.prevGrayFrame) this.prevGrayFrame.delete();
+
                 this.frame = new cv.Mat(video.videoHeight, video.videoWidth, cv.CV_8UC4);
                 this.grayFrame = new cv.Mat();
                 this.prevGrayFrame = new cv.Mat();
-                
+
                 // Update debug canvas size
                 if (this.debugCanvas) {
                     this.debugCanvas.width = video.videoWidth;
                     this.debugCanvas.height = video.videoHeight;
                 }
-                
+
                 // Update camera matrix
                 this.initCameraMatrix(video.videoWidth, video.videoHeight);
             }
-            
+
             // Read frame from video
             const cap = new cv.VideoCapture(video);
             cap.read(this.frame);
@@ -453,8 +469,9 @@ export class AREngine {
         this.currentPose = null;
         this.detectedPlanes = [];
         this.groundPlane = null;
-        
-        if (this.prevGrayFrame.rows > 0) {
+
+        // Safely reset frame data if initialized
+        if (this.prevGrayFrame && this.prevGrayFrame.rows > 0) {
             this.prevGrayFrame.setTo([0, 0, 0, 0]);
         }
     }
