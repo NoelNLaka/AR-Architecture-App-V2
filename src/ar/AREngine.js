@@ -148,9 +148,20 @@ export class AREngine {
                 this.initCameraMatrix(video.videoWidth, video.videoHeight);
             }
 
-            // Read frame from video
-            const cap = new cv.VideoCapture(video);
-            cap.read(this.frame);
+            // Verify frame size still matches before reading (dimensions could have changed)
+            if (this.frame.rows !== video.videoHeight || this.frame.cols !== video.videoWidth) {
+                console.warn('[AREngine] Frame size mismatch after initialization, skipping frame');
+                return result;
+            }
+
+            // Read frame from video with error handling
+            try {
+                const cap = new cv.VideoCapture(video);
+                cap.read(this.frame);
+            } catch (readError) {
+                console.warn('[AREngine] Failed to read frame:', readError.message);
+                return result;
+            }
             
             // Convert to grayscale
             cv.cvtColor(this.frame, this.grayFrame, cv.COLOR_RGBA2GRAY);

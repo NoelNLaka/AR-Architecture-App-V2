@@ -195,24 +195,26 @@ class ARArchitectureApp {
                 fpsUpdateTime = now;
             }
             
-            // Process frame with OpenCV
-            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+            // Process frame with OpenCV - ensure video is ready and has valid dimensions
+            if (video.readyState === video.HAVE_ENOUGH_DATA &&
+                video.videoWidth > 0 &&
+                video.videoHeight > 0) {
                 try {
                     const trackingResult = this.arEngine.processFrame(video);
-                    
+
                     // Log status periodically
                     if (frameCount === 1 || frameCount % 60 === 0) {
                         console.log('[Main] Frame', frameCount, 'Features:', trackingResult.featureCount, 'Tracking:', trackingResult.isTracking);
                     }
-                    
+
                     // Update UI based on tracking status
                     this.updateTrackingStatus(trackingResult);
-                    
+
                     // Update 3D scene
                     if (trackingResult.isTracking && this.currentModel) {
                         this.sceneManager.updateModelPose(trackingResult.pose);
                     }
-                    
+
                     // Update debug info
                     if (this.uiController?.isDebugVisible) {
                         this.updateDebugInfo(trackingResult);
