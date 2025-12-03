@@ -103,33 +103,53 @@ export class ARLocationEngine {
     async startGPSTracking() {
         return new Promise((resolve, reject) => {
             if (!navigator.geolocation) {
-                reject(new Error('Geolocation not available'));
+                reject(new Error('Geolocation API not available in this browser'));
                 return;
             }
 
             const options = {
                 enableHighAccuracy: true,
-                timeout: 10000,
+                timeout: 30000, // Increased to 30 seconds for better GPS acquisition
                 maximumAge: 0
             };
+
+            console.log('[ARLocationEngine] Requesting GPS permission...');
 
             // Get initial position
             navigator.geolocation.getCurrentPosition(
                 (position) => {
+                    console.log('[ARLocationEngine] GPS permission granted, position acquired');
                     this.updateLocation(position);
 
                     // Start watching position
                     this.watchId = navigator.geolocation.watchPosition(
                         (pos) => this.updateLocation(pos),
-                        (error) => console.warn('[ARLocationEngine] GPS error:', error),
+                        (error) => {
+                            console.warn('[ARLocationEngine] GPS tracking error:', error.code, error.message);
+                        },
                         options
                     );
 
                     resolve();
                 },
                 (error) => {
-                    console.error('[ARLocationEngine] GPS permission denied:', error);
-                    reject(error);
+                    // Provide specific error messages
+                    let errorMessage = 'GPS error: ';
+                    switch(error.code) {
+                        case error.PERMISSION_DENIED:
+                            errorMessage += 'Location permission denied. Please allow location access in your browser settings.';
+                            break;
+                        case error.POSITION_UNAVAILABLE:
+                            errorMessage += 'Location information unavailable. Make sure GPS/Location Services are enabled.';
+                            break;
+                        case error.TIMEOUT:
+                            errorMessage += 'GPS request timed out. Please ensure you have a clear view of the sky and try again.';
+                            break;
+                        default:
+                            errorMessage += error.message;
+                    }
+                    console.error('[ARLocationEngine]', errorMessage);
+                    reject(new Error(errorMessage));
                 },
                 options
             );

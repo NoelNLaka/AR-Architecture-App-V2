@@ -90,7 +90,7 @@ class ARArchitectureApp {
     }
 
     async initLocationMode() {
-        this.updateLoadingStatus('Initializing GPS tracking...', 10);
+        this.updateLoadingStatus('Checking GPS support...', 10);
 
         try {
             // Check GPS support
@@ -98,11 +98,15 @@ class ARArchitectureApp {
             const supported = await locationEngine.checkSupport();
 
             if (!supported) {
-                throw new Error('GPS or compass not supported. Falling back to indoor mode.');
+                throw new Error('GPS or compass not supported by your device/browser.');
             }
+
+            this.updateLoadingStatus('Requesting location permission...', 20);
 
             this.arMode = 'location';
             this.arEngine = locationEngine;
+
+            this.updateLoadingStatus('Acquiring GPS signal (may take up to 30s)...', 30);
             await this.arEngine.init();
 
             this.updateLoadingStatus('GPS tracking active', 40);
@@ -131,7 +135,11 @@ class ARArchitectureApp {
 
         } catch (error) {
             console.error('[Main] Location mode failed:', error);
-            alert('GPS mode not available. Switching to indoor mode.');
+
+            // Show specific error message to user
+            const errorMsg = error.message || 'Unknown GPS error';
+            alert(`GPS Mode Failed:\n\n${errorMsg}\n\nSwitching to indoor mode.`);
+
             this.isOutdoorMode = false;
             await this.initOpenCVMode();
         }
